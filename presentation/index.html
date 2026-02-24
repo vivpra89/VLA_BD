@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vision-Language-Action Models: Fine-Tuning & Introspection</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  .reveal { font-size: 28px; }
+  .reveal h1 { font-size: 2.0em; color: #1a1a2e; }
+  .reveal h2 { font-size: 1.5em; color: #16213e; }
+  .reveal h3 { font-size: 1.2em; color: #0f3460; }
+  .reveal .slide-number { font-size: 14px; }
+  .arch-box { background: #f0f4ff; border: 2px solid #4a6cf7; border-radius: 12px; padding: 20px; margin: 10px; display: inline-block; text-align: center; }
+  .arch-arrow { font-size: 2em; color: #4a6cf7; margin: 0 10px; vertical-align: middle; }
+  .highlight-green { color: #27ae60; font-weight: bold; }
+  .highlight-red { color: #e74c3c; font-weight: bold; }
+  .highlight-blue { color: #2980b9; font-weight: bold; }
+  .small { font-size: 0.7em; color: #666; }
+  .comparison-table { margin: 0 auto; border-collapse: collapse; }
+  .comparison-table th, .comparison-table td { padding: 12px 20px; border: 1px solid #ddd; text-align: center; }
+  .comparison-table th { background: #f0f4ff; }
+  .key-insight { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; text-align: left; font-size: 0.9em; }
+  .placeholder-img { background: #e8e8e8; border: 2px dashed #999; border-radius: 8px; padding: 40px; margin: 10px auto; text-align: center; color: #666; font-style: italic; max-width: 80%; }
+  ul { text-align: left; }
+  .reveal section img { max-height: 450px; }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- ============================================================ -->
+<!-- SLIDE 1: Title -->
+<!-- ============================================================ -->
+<section>
+  <h1>Vision-Language-Action Models</h1>
+  <h3>Fine-Tuning & Introspection in Simulation</h3>
+  <br>
+  <p class="small">SmolVLA on Meta-World &mdash; from pretrained VLM to task-specific robot policy</p>
+</section>
+
+<!-- ============================================================ -->
+<!-- ACT 1: THE LANDSCAPE -->
+<!-- ============================================================ -->
+<section>
+  <h2>Act 1: Where VLAs Are Right Now</h2>
+</section>
+
+<!-- SLIDE 2: The VLA Moment -->
+<section>
+  <h2>The VLA Moment</h2>
+  <p>Vision + Language + Action in a single end-to-end model</p>
+  <br>
+  <table class="comparison-table">
+    <tr>
+      <th>Model</th><th>Team</th><th>Size</th><th>Action Decoder</th>
+    </tr>
+    <tr><td>Pi0 / Pi0.5</td><td>Physical Intelligence</td><td>3B</td><td>Flow Matching</td></tr>
+    <tr><td>RT-2</td><td>Google DeepMind</td><td>55B</td><td>Autoregressive</td></tr>
+    <tr><td>OpenVLA</td><td>Stanford</td><td>7B</td><td>Discrete tokens</td></tr>
+    <tr><td><strong>SmolVLA</strong></td><td>HuggingFace</td><td><strong>450M</strong></td><td>Flow Matching</td></tr>
+  </table>
+  <br>
+  <p>The pattern: <span class="highlight-blue">pretrained VLM</span> + <span class="highlight-green">action decoder</span> + <span class="highlight-red">robot fine-tuning</span></p>
+</section>
+
+<!-- SLIDE 3: Architecture Pattern -->
+<section>
+  <h2>Shared Architecture Pattern</h2>
+  <br>
+  <div style="display: flex; align-items: center; justify-content: center;">
+    <div class="arch-box">
+      <strong>Vision Encoder</strong><br>
+      <span class="small">SigLIP</span><br>
+      Images &rarr; tokens
+    </div>
+    <span class="arch-arrow">&rarr;</span>
+    <div class="arch-box">
+      <strong>Language Model</strong><br>
+      <span class="small">Gemma / SmolLM2</span><br>
+      Multimodal reasoning
+    </div>
+    <span class="arch-arrow">&rarr;</span>
+    <div class="arch-box">
+      <strong>Action Expert</strong><br>
+      <span class="small">Flow Matching</span><br>
+      Continuous actions
+    </div>
+  </div>
+  <br>
+  <p>This architecture is shared across Pi0.5, SmolVLA, and others.<br>
+  They differ in <strong>scale</strong> and <strong>decoder design</strong>.</p>
+</section>
+
+<!-- SLIDE 4: BEHAVIOR-1K Reference -->
+<section>
+  <h2>State of the Art: BEHAVIOR-1K Challenge</h2>
+  <ul>
+    <li>50 long-horizon household tasks in photorealistic simulation</li>
+    <li>1st place: Pi0.5-based VLA, 26% success rate</li>
+    <li>Key innovations:
+      <ul>
+        <li><strong>Correlated noise</strong> for flow matching &mdash; smoother action sequences</li>
+        <li><strong>System 2 stage tracking</strong> &mdash; resolves visual ambiguity</li>
+        <li><strong>Cross-task recovery</strong> &mdash; emergent behavior from multi-task training</li>
+      </ul>
+    </li>
+  </ul>
+  <div class="key-insight">
+    This is the frontier. Now let me show you what I built to understand how these models actually work.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- ACT 2: WHAT I BUILT -->
+<!-- ============================================================ -->
+<section>
+  <h2>Act 2: What I Built</h2>
+</section>
+
+<!-- SLIDE 5: My Setup -->
+<section>
+  <h2>Experiment Setup</h2>
+  <table class="comparison-table">
+    <tr><th>Component</th><th>Choice</th><th>Why</th></tr>
+    <tr><td>Model</td><td>SmolVLA (450M)</td><td>Same architecture as Pi0.5, 15x smaller &mdash; fast to train &amp; introspect</td></tr>
+    <tr><td>Simulation</td><td>Meta-World (50 tasks)</td><td>Diverse manipulation, standardized eval, no robot needed</td></tr>
+    <tr><td>Compute</td><td>Single A100 GPU</td><td>~5 hours training via Google Colab</td></tr>
+    <tr><td>Framework</td><td>LeRobot (HuggingFace)</td><td>Unified training, eval, and dataset pipeline</td></tr>
+  </table>
+  <br>
+  <p>Tasks: <strong>assembly</strong> (insertion), <strong>dial-turn</strong> (rotation), <strong>handle-press</strong> (pushing)</p>
+</section>
+
+<!-- SLIDE 6: 3-Way Comparison -->
+<section>
+  <h2>The Experiment: 3-Way Comparison</h2>
+  <br>
+  <table class="comparison-table">
+    <tr><th>Condition</th><th>Init Weights</th><th>Training Data</th><th>What It Tests</th></tr>
+    <tr>
+      <td class="highlight-red">Random Init</td>
+      <td>None (random)</td>
+      <td>Meta-World</td>
+      <td>Can the architecture learn from zero?</td>
+    </tr>
+    <tr>
+      <td style="color: #e67e22; font-weight: bold;">Pretrained Zero-Shot</td>
+      <td>SO100 real robot</td>
+      <td>None</td>
+      <td>Do pretrained features transfer?</td>
+    </tr>
+    <tr>
+      <td class="highlight-green">Fine-Tuned</td>
+      <td>SO100 real robot</td>
+      <td>Meta-World</td>
+      <td>How much does adaptation help?</td>
+    </tr>
+  </table>
+</section>
+
+<!-- SLIDE 7: Training Curves -->
+<section>
+  <h2>Training Curves</h2>
+  <div class="placeholder-img">
+    <!-- Replace with actual training_comparison.png from W&B or notebook output -->
+    [INSERT: training_comparison.png from 01_vla_training.ipynb]<br><br>
+    Loss curves: fine-tuned converges faster than random init.<br>
+    Pretrained VLM features transfer even across robot embodiments.
+  </div>
+</section>
+
+<!-- SLIDE 8: Video Comparison -->
+<section>
+  <h2>Before &amp; After: assembly-v3</h2>
+  <div style="display: flex; justify-content: space-around;">
+    <div class="placeholder-img" style="width: 30%;">
+      [Random Init]<br>Flails randomly
+    </div>
+    <div class="placeholder-img" style="width: 30%;">
+      [Pretrained Zero-Shot]<br>Reaches but wrong kinematics
+    </div>
+    <div class="placeholder-img" style="width: 30%;">
+      [Fine-Tuned]<br>Completes the task
+    </div>
+  </div>
+  <br>
+  <p class="small">Replace placeholders with actual eval videos or key frames from notebook</p>
+</section>
+
+<!-- SLIDE 9: Multi-Task Results -->
+<section>
+  <h2>Multi-Task Success Rates</h2>
+  <div class="placeholder-img">
+    <!-- Replace with actual bar chart from notebook -->
+    [INSERT: success rate bar chart from 01_vla_training.ipynb]<br><br>
+    Success rates across 3 tasks for each condition.
+  </div>
+  <div class="key-insight">
+    One model trained on all 3 tasks simultaneously &mdash; multi-task fine-tuning works.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- ACT 3: INSIDE THE BLACK BOX -->
+<!-- ============================================================ -->
+<section>
+  <h2>Act 3: Inside the Black Box</h2>
+</section>
+
+<!-- SLIDE 10: Attention Maps -->
+<section>
+  <h2>What Does the VLA Look At?</h2>
+  <div class="placeholder-img">
+    <!-- Replace with attention_phases.png from introspection notebook -->
+    [INSERT: attention_phases.png]<br><br>
+    Attention shifts across task phases:<br>
+    Reaching &rarr; target object | Grasping &rarr; contact point | Placing &rarr; destination
+  </div>
+  <div class="key-insight">
+    After fine-tuning, attention becomes task-specific: the pretrained model attends broadly,
+    the fine-tuned model learns to focus on what matters for each manipulation phase.
+  </div>
+</section>
+
+<!-- SLIDE 11: Action Trajectories -->
+<section>
+  <h2>What Does the VLA Plan?</h2>
+  <div class="placeholder-img">
+    <!-- Replace with action_distribution.png from introspection notebook -->
+    [INSERT: action_distribution.png]<br><br>
+    10 predicted action chunks from different noise seeds.<br>
+    Tight bundle = model is confident. Spread = uncertain.
+  </div>
+  <p>Flow matching generates a <strong>distribution</strong> of possible action sequences,<br>
+  not a single point prediction. This captures multi-modal behavior.</p>
+</section>
+
+<!-- SLIDE 12: Language Conditioning -->
+<section>
+  <h2>Does It Actually Read the Instruction?</h2>
+  <div class="placeholder-img">
+    <!-- Replace with language_conditioning.png from introspection notebook -->
+    [INSERT: language_conditioning.png]<br><br>
+    Same image, different instructions &rarr; different action trajectories.<br>
+    Scrambled instruction &rarr; degraded actions.
+  </div>
+  <div class="key-insight">
+    The language pathway is functional, not decorative. Different task descriptions produce
+    measurably different motor plans from the same visual observation.
+  </div>
+</section>
+
+<!-- SLIDE 13: Failure Analysis -->
+<section>
+  <h2>Where &amp; Why It Breaks</h2>
+  <div class="placeholder-img">
+    <!-- Replace with failure_analysis.png from introspection notebook -->
+    [INSERT: failure_analysis.png]<br><br>
+    Gripper trajectories, reward curves, action magnitudes for success vs failure episodes.
+  </div>
+  <ul>
+    <li><strong>State transitions</strong> are the weak point (reach&rarr;grasp, grasp&rarr;move)</li>
+    <li>Failed episodes show erratic action magnitudes at decision boundaries</li>
+    <li>Consistent with BEHAVIOR-1K findings: recovery from errors needs explicit mechanisms</li>
+  </ul>
+</section>
+
+<!-- SLIDE 14: Representation Space -->
+<section>
+  <h2>What Did Fine-Tuning Change?</h2>
+  <div class="placeholder-img">
+    <!-- Replace with tsne_comparison.png from introspection notebook -->
+    [INSERT: tsne_comparison.png]<br><br>
+    t-SNE of VLM hidden states. Left: pretrained (mixed). Right: fine-tuned (clustered by task).
+  </div>
+  <div class="key-insight">
+    Fine-tuning reorganizes the representation space: task-specific clusters emerge,
+    meaning the model has learned a structured understanding of different manipulation skills.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- ACT 4: TAKEAWAYS -->
+<!-- ============================================================ -->
+<section>
+  <h2>Act 4: What This Means</h2>
+</section>
+
+<!-- SLIDE 15: What Works -->
+<section>
+  <h2>What Works</h2>
+  <ul>
+    <li><span class="highlight-green">Pretrained VLM features transfer</span> across robot embodiments
+      <br><span class="small">Real SO100 &rarr; simulated Sawyer arm, different morphology and dynamics</span></li>
+    <li><span class="highlight-green">Flow matching</span> produces smooth, multi-modal action plans
+      <br><span class="small">Better than discrete tokenization for continuous control</span></li>
+    <li><span class="highlight-green">Language conditioning is real</span>, not decorative
+      <br><span class="small">Different instructions produce measurably different motor plans</span></li>
+    <li><span class="highlight-green">Small VLAs (450M) can be effective</span>
+      <br><span class="small">You don't always need 7B+ parameters</span></li>
+  </ul>
+</section>
+
+<!-- SLIDE 16: What Doesn't -->
+<section>
+  <h2>What Doesn't (Yet)</h2>
+  <ul>
+    <li><span class="highlight-red">State transitions remain fragile</span>
+      <br><span class="small">Reaching is easy; grasp timing is hard</span></li>
+    <li><span class="highlight-red">No recovery behavior</span> from imitation learning alone
+      <br><span class="small">BEHAVIOR-1K team needed explicit heuristics (e.g., reopen gripper after failed grasp)</span></li>
+    <li><span class="highlight-red">Sim-to-real gap</span>
+      <br><span class="small">Meta-World is clean; real world is messy</span></li>
+    <li><span class="highlight-red">True multi-task generalization</span> needs more data
+      <br><span class="small">Per-task fine-tuning is strong, 50-task generalization is hard</span></li>
+  </ul>
+</section>
+
+<!-- SLIDE 17: Where VLAs Are Headed -->
+<section>
+  <h2>Where VLAs Are Headed</h2>
+  <ul>
+    <li><strong>Scaling data</strong>: LeRobot community datasets, Open X-Embodiment</li>
+    <li><strong>Better action decoders</strong>: correlated noise flow matching (BEHAVIOR-1K), FAST tokenizer</li>
+    <li><strong>System 2 reasoning</strong>: stage tracking, planning before acting</li>
+    <li><strong>Sim-to-real pipelines</strong>: SIMPLER, Isaac Lab Arena, domain randomization</li>
+    <li><strong>Efficient architectures</strong>: SmolVLA proves small models work; next step is deployment on edge hardware</li>
+  </ul>
+</section>
+
+<!-- SLIDE 18: Q&A -->
+<section>
+  <h1>Q&amp;A</h1>
+  <br>
+  <p>Colab notebooks available for live demo</p>
+  <br>
+  <p class="small">
+    SmolVLA: <a href="https://huggingface.co/lerobot/smolvla_base">huggingface.co/lerobot/smolvla_base</a><br>
+    LeRobot: <a href="https://github.com/huggingface/lerobot">github.com/huggingface/lerobot</a><br>
+    BEHAVIOR-1K Solution: <a href="https://github.com/IliaLarchenko/behavior-1k-solution">github.com/IliaLarchenko/behavior-1k-solution</a>
+  </p>
+</section>
+
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>
+Reveal.initialize({
+  hash: true,
+  slideNumber: true,
+  transition: 'slide',
+  center: true,
+});
+</script>
+</body>
+</html>

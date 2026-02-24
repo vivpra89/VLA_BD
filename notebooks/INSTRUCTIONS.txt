@@ -1,0 +1,43 @@
+VLA Presentation - Execution Instructions
+==========================================
+
+You have 2 Colab notebooks ready. Here's the order of operations:
+
+STEP 1: Upload & Run Training Notebook (~10-12 hours total)
+------------------------------------------------------------
+1. Open Google Colab: https://colab.research.google.com/
+2. Upload "01_vla_training.ipynb"
+3. Runtime > Change runtime type > A100 GPU, High-RAM
+4. Run all cells in order
+5. Cell 1 will restart the runtime -- that's expected, just continue from Cell 2
+6. The fine-tuning run takes ~5 hours, the from-scratch run takes another ~5 hours
+7. You can run them overnight -- just make sure Colab doesn't disconnect
+   TIP: Keep the tab active, or use a Colab keep-alive browser extension
+8. After training, the final cell uploads checkpoints to HuggingFace Hub
+
+STEP 2: Upload & Run Introspection Notebook (~1-2 hours)
+----------------------------------------------------------
+1. Upload "02_vla_introspection.ipynb" to Colab (same A100 runtime)
+2. Update FINETUNED_PATH at the top to point to your checkpoint
+   (either the local path from Step 1, or your HF Hub repo ID)
+3. Run all cells -- each section generates presentation-ready PNG figures
+4. The final cell zips all figures and downloads them to your machine
+
+STEP 3: Collect Videos
+-----------------------
+The training notebook's eval cells produce evaluation episodes.
+For side-by-side videos, you may need to:
+- Record the env.render() output during eval episodes
+- Use ffmpeg to stitch frames into video:
+  ffmpeg -framerate 30 -i frame_%04d.png -c:v libx264 -pix_fmt yuv420p output.mp4
+- Or use matplotlib.animation to save directly from the notebook
+
+WHAT YOU'LL HAVE AFTER:
+- Training loss curves (from W&B dashboard)
+- Success rate comparison chart (3-way: scratch vs zero-shot vs fine-tuned)
+- Attention heatmaps (per task phase, pretrained vs fine-tuned)
+- Action distribution plots (10 noise seeds)
+- Language conditioning probe (similarity matrix + trajectory divergence)
+- Failure analysis (gripper trajectories, reward curves, frame comparisons)
+- t-SNE embeddings (before vs after fine-tuning)
+- All saved as high-resolution PNGs ready for slides
